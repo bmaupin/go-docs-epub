@@ -1,9 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
-	"strings"
 
 	"golang.org/x/net/html"
 
@@ -12,11 +12,17 @@ import (
 )
 
 const (
-	effectiveGoFilename  = "Effective Go.epub"
-	effectiveGoSeparator = "<h2"
-	effectiveGoTitle     = "Effective Go"
-	effectiveGoUrl       = "https://golang.org/doc/effective_go.html"
+	effectiveGoFilename   = "Effective Go.epub"
+	effectiveGoSectionTag = "h2"
+	effectiveGoSeparator  = "<h2"
+	effectiveGoTitle      = "Effective Go"
+	effectiveGoUrl        = "https://golang.org/doc/effective_go.html"
 )
+
+type epubSection struct {
+	title string
+	nodes []html.Node
+}
 
 func main() {
 	err := buildEffectiveGo()
@@ -41,33 +47,75 @@ func buildEffectiveGo() error {
 		log.Fatalf("Parse error: %s", err)
 	}
 
-	contentNode, err := htmlutil.GetFirstHtmlNode(doc, "div", "id", "page")
+	pageNode, err := htmlutil.GetFirstHtmlNode(doc, "div", "id", "page")
+	containerNode, err := htmlutil.GetFirstHtmlNode(pageNode, "div", "class", "container")
 
 	// Remove the footer node
-	htmlutil.RemoveFirstHtmlNode(contentNode, "div", "id", "footer")
+	// TODO: add this to the title page
+	htmlutil.RemoveFirstHtmlNode(containerNode, "div", "id", "footer")
 
-	contentText, err := htmlutil.HtmlNodeToString(contentNode)
+	sections := []epubSection{}
+	// TODO: add a title to the first section?
+	// TODO: content is missing from the first section
+	section := &epubSection{}
+
+	// Iterate through each child node
+	for n := containerNode.FirstChild; n != nil; n = n.NextSibling {
+		// If we find the section tag
+		if n.Type == html.ElementNode && n.Data == effectiveGoSectionTag {
+			// Add the previous section to the slice of sections
+			sections = append(sections, *section)
+
+			// Start a new section
+			section = &epubSection{
+				title: n.FirstChild.Data,
+			}
+		}
+
+		// Append the current node to the current section
+		section.nodes = append(section.nodes, *n)
+	}
+
+	// Make sure the last section gets added
+	sections = append(sections, *section)
 
 	e := epub.NewEpub(effectiveGoTitle)
 
-	// Split up the page into sections
-	for i, sectionContent := range strings.Split(contentText, effectiveGoSeparator) {
-		// Ignore everything before the first separator
-		if i == 0 {
-			continue
+	// Iterate through each section and add it to the EPUB
+	for _, section := range sections {
+		sectionContent := ""
+		for _, node := range section.nodes {
+			nodeContent, err := htmlutil.HtmlNodeToString(&node)
+			if err != nil {
+				return err
+			}
+			sectionContent += nodeContent
 		}
 
-		// Add the separator back to the content
-		sectionContent = effectiveGoSeparator + sectionContent
-
-		// Extract the title
-		sectionTitle := sectionContent[strings.Index(sectionContent, ">")+1 : strings.Index(sectionContent, "</")]
-
-		// TODO: assign a filename to each section for internal links
-		e.AddSection(sectionTitle, sectionContent, "", "")
+		e.AddSection(section.title, sectionContent, "", "")
 	}
 
 	e.Write(effectiveGoFilename)
 
 	return nil
+}
+
+func debugNode(n *html.Node) {
+	fmt.Printf("type: %s\n", n.Type)
+	if n.Type == html.CommentNode {
+		fmt.Println("type: CommentNode")
+	} else if n.Type == html.DoctypeNode {
+		fmt.Println("type: DoctypeNode")
+	} else if n.Type == html.DocumentNode {
+		fmt.Println("type: DocumentNode")
+	} else if n.Type == html.ElementNode {
+		fmt.Println("type: ElementNode")
+	} else if n.Type == html.ErrorNode {
+		fmt.Println("type: ErrorNode")
+	} else if n.Type == html.TextNode {
+		fmt.Println("type: TextNode")
+	}
+
+	fmt.Printf("data: %s\n", n.Data)
+	fmt.Println(htmlutil.HtmlNodeToString(n))
 }
