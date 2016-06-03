@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"golang.org/x/net/html"
 
@@ -20,8 +21,9 @@ const (
 )
 
 type epubSection struct {
-	title string
-	nodes []html.Node
+	title    string
+	filename string
+	nodes    []html.Node
 }
 
 func main() {
@@ -47,8 +49,8 @@ func buildEffectiveGo() error {
 		log.Fatalf("Parse error: %s", err)
 	}
 
-	pageNode, err := htmlutil.GetFirstHtmlNode(doc, "div", "id", "page")
-	containerNode, err := htmlutil.GetFirstHtmlNode(pageNode, "div", "class", "container")
+	pageNode := htmlutil.GetFirstHtmlNode(doc, "div", "id", "page")
+	containerNode := htmlutil.GetFirstHtmlNode(pageNode, "div", "class", "container")
 
 	// Remove the footer node
 	// TODO: add this to the title page
@@ -56,8 +58,10 @@ func buildEffectiveGo() error {
 
 	sections := []epubSection{}
 	// TODO: add a title to the first section?
-	// TODO: content is missing from the first section
+	// TODO: set filename?
+	// TODO: remove the <div id="nav"></div> element from the first section
 	section := &epubSection{}
+	//	internalLinks := make(map[string]string)
 
 	// Iterate through each child node
 	for n := containerNode.FirstChild; n != nil; n = n.NextSibling {
@@ -66,14 +70,23 @@ func buildEffectiveGo() error {
 			// Add the previous section to the slice of sections
 			sections = append(sections, *section)
 
+			sectionTitle := n.FirstChild.Data
+
 			// Start a new section
 			section = &epubSection{
-				title: n.FirstChild.Data,
+				filename: titleToFilename(sectionTitle),
+				title:    sectionTitle,
 			}
 		}
 
 		// Append the current node to the current section
 		section.nodes = append(section.nodes, *n)
+
+		/*
+					for _, node := range GetHtmlNodes(containerNode, "", "id", "", -1) {
+				fmt.Println(htmlutil.HtmlNodeToString(node))
+			}
+		*/
 	}
 
 	// Make sure the last section gets added
@@ -92,12 +105,22 @@ func buildEffectiveGo() error {
 			sectionContent += nodeContent
 		}
 
-		e.AddSection(section.title, sectionContent, "", "")
+		_, err := e.AddSection(section.title, sectionContent, section.filename, "")
+		if err != nil {
+			return err
+		}
 	}
 
 	e.Write(effectiveGoFilename)
 
 	return nil
+}
+
+func titleToFilename(title string) string {
+	title = strings.ToLower(title)
+	title = strings.Replace(title, " ", "-", -1)
+
+	return fmt.Sprintf("%s.xhtml", title)
 }
 
 func debugNode(n *html.Node) {
