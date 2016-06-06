@@ -13,6 +13,7 @@ import (
 )
 
 const (
+	effectiveGoCoverImg   = "covers/effective-go.png"
 	effectiveGoFilename   = "Effective Go.epub"
 	effectiveGoSectionTag = "h2"
 	effectiveGoSeparator  = "<h2"
@@ -93,6 +94,7 @@ func buildEffectiveGo() error {
 	sections = append(sections, *section)
 
 	e := epub.NewEpub(effectiveGoTitle)
+	e.SetCover(effectiveGoCoverImg, "")
 
 	// Iterate through each section and add it to the EPUB
 	for _, section := range sections {
@@ -111,7 +113,10 @@ func buildEffectiveGo() error {
 		}
 	}
 
-	e.Write(effectiveGoFilename)
+	err = e.Write(effectiveGoFilename)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
