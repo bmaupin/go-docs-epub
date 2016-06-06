@@ -53,14 +53,38 @@ func buildEffectiveGo() error {
 	pageNode := htmlutil.GetFirstHtmlNode(doc, "div", "id", "page")
 	containerNode := htmlutil.GetFirstHtmlNode(pageNode, "div", "class", "container")
 
-	// Remove the footer node
-	// TODO: add this to the title page
-	htmlutil.RemoveFirstHtmlNode(containerNode, "div", "id", "footer")
+	// Get the footer node and clean it up a little bit
+	footerNode := htmlutil.GetFirstHtmlNode(containerNode, "div", "id", "footer")
+	newBrNode := func() *html.Node {
+		return &html.Node{
+			Type: html.ElementNode,
+			Data: "br",
+		}
+	}
+	for node := footerNode.FirstChild; node != nil; node = node.NextSibling {
+		// Double all <br> elements for styling
+		if node.Type == html.ElementNode && node.Data == "br" {
+			footerNode.InsertBefore(newBrNode(), node)
+
+		} else if node.Type == html.TextNode && strings.Contains(node.Data, "page") {
+			node.Data = strings.Replace(node.Data, "page", "book", -1)
+		}
+	}
+	footerNode.InsertBefore(
+		newBrNode(),
+		footerNode.FirstChild)
+	footerNode.InsertBefore(
+		newBrNode(),
+		footerNode.FirstChild)
+	// TODO: make this a link
+	footerNode.InsertBefore(
+		&html.Node{
+			Type: html.TextNode,
+			Data: fmt.Sprintf("Source: %s", effectiveGoUrl),
+		},
+		footerNode.FirstChild)
 
 	sections := []epubSection{}
-	// TODO: add a title to the first section?
-	// TODO: set filename?
-	// TODO: remove the <div id="nav"></div> element from the first section
 	section := &epubSection{}
 	//	internalLinks := make(map[string]string)
 
@@ -80,8 +104,13 @@ func buildEffectiveGo() error {
 			}
 		}
 
-		// Append the current node to the current section
-		section.nodes = append(section.nodes, *n)
+		if n == footerNode {
+			// Add the footer node to the title page since it contains license information
+			sections[0].nodes = append(sections[0].nodes, *n)
+		} else {
+			// Append the current node to the current section
+			section.nodes = append(section.nodes, *n)
+		}
 
 		/*
 					for _, node := range GetHtmlNodes(containerNode, "", "id", "", -1) {
@@ -128,6 +157,7 @@ func titleToFilename(title string) string {
 	return fmt.Sprintf("%s.xhtml", title)
 }
 
+// TODO: remove this
 func debugNode(n *html.Node) {
 	fmt.Printf("type: %s\n", n.Type)
 	if n.Type == html.CommentNode {
