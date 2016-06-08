@@ -13,12 +13,13 @@ import (
 )
 
 const (
-	effectiveGoCoverImg   = "covers/effective-go.png"
-	effectiveGoFilename   = "Effective Go.epub"
-	effectiveGoSectionTag = "h2"
-	effectiveGoSeparator  = "<h2"
-	effectiveGoTitle      = "Effective Go"
-	effectiveGoUrl        = "https://golang.org/doc/effective_go.html"
+	effectiveGoCoverImg      = "covers/effective-go.png"
+	effectiveGoFilename      = "Effective Go.epub"
+	effectiveGoSectionTag    = "h2"
+	effectiveGoSeparator     = "<h2"
+	effectiveGoTitle         = "Effective Go"
+	effectiveGoTitleFilename = "title.xhtml"
+	effectiveGoUrl           = "https://golang.org/doc/effective_go.html"
 )
 
 type epubSection struct {
@@ -57,39 +58,51 @@ func buildEffectiveGo() error {
 	footerNode = reformatEffectiveGoFooter(footerNode)
 
 	sections := []epubSection{}
-	section := &epubSection{}
-	//	internalLinks := make(map[string]string)
+	sectionFilename := effectiveGoTitleFilename
+	// Don't add a title so it doesn't get added to the TOC
+	section := &epubSection{
+		filename: effectiveGoTitleFilename,
+	}
+	internalLinks := make(map[string]string)
 
 	// Iterate through each child node
-	for n := containerNode.FirstChild; n != nil; n = n.NextSibling {
+	for node := containerNode.FirstChild; node != nil; node = node.NextSibling {
 		// If we find the section tag
-		if n.Type == html.ElementNode && n.Data == effectiveGoSectionTag {
+		if node.Type == html.ElementNode && node.Data == effectiveGoSectionTag {
 			// Add the previous section to the slice of sections
 			sections = append(sections, *section)
 
-			sectionTitle := n.FirstChild.Data
+			sectionTitle := node.FirstChild.Data
+			sectionFilename = titleToFilename(sectionTitle)
 
 			// Start a new section
 			section = &epubSection{
-				filename: titleToFilename(sectionTitle),
+				filename: sectionFilename,
 				title:    sectionTitle,
 			}
 		}
 
-		if n == footerNode {
+		if node == footerNode {
 			// Add the footer node to the title page since it contains license information
-			sections[0].nodes = append(sections[0].nodes, *n)
+			sections[0].nodes = append(sections[0].nodes, *node)
 		} else {
 			// Append the current node to the current section
-			section.nodes = append(section.nodes, *n)
+			section.nodes = append(section.nodes, *node)
 		}
 
-		/*
-					for _, node := range GetHtmlNodes(containerNode, "", "id", "", -1) {
-				fmt.Println(htmlutil.HtmlNodeToString(node))
+		for _, n := range htmlutil.GetAllHtmlNodes(node, "", "id", "") {
+			//fmt.Println(htmlutil.HtmlNodeToString(n))
+			//debugNode(n)
+			//fmt.Println(node.Attr["id"])
+			for _, attr := range n.Attr {
+				if attr.Key == "id" {
+					internalLinks[attr.Val] = fmt.Sprintf("%s#%s", sectionFilename, attr.Val)
+				}
 			}
-		*/
+		}
 	}
+
+	//fmt.Printf("%v\n", internalLinks)
 
 	// Make sure the last section gets added
 	sections = append(sections, *section)
@@ -130,25 +143,25 @@ func titleToFilename(title string) string {
 }
 
 // TODO: remove this
-func debugNode(n *html.Node) {
-	fmt.Printf("type: %s\n", n.Type)
-	if n.Type == html.CommentNode {
+func debugNode(node *html.Node) {
+	fmt.Printf("type: %s\n", node.Type)
+	if node.Type == html.CommentNode {
 		fmt.Println("type: CommentNode")
-	} else if n.Type == html.DoctypeNode {
+	} else if node.Type == html.DoctypeNode {
 		fmt.Println("type: DoctypeNode")
-	} else if n.Type == html.DocumentNode {
+	} else if node.Type == html.DocumentNode {
 		fmt.Println("type: DocumentNode")
-	} else if n.Type == html.ElementNode {
+	} else if node.Type == html.ElementNode {
 		fmt.Println("type: ElementNode")
-	} else if n.Type == html.ErrorNode {
+	} else if node.Type == html.ErrorNode {
 		fmt.Println("type: ErrorNode")
-	} else if n.Type == html.TextNode {
+	} else if node.Type == html.TextNode {
 		fmt.Println("type: TextNode")
 	}
 
-	fmt.Printf("data: %s\n", n.Data)
-	fmt.Printf("attr: %s\n", n.Attr)
-	fmt.Println(htmlutil.HtmlNodeToString(n))
+	fmt.Printf("data: %s\n", node.Data)
+	fmt.Printf("attr: %s\n", node.Attr)
+	fmt.Println(htmlutil.HtmlNodeToString(node))
 }
 
 func reformatEffectiveGoFooter(footerNode *html.Node) *html.Node {
