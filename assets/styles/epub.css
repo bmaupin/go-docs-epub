@@ -1,0 +1,8 @@
+pre {
+  background-color: #efefef;
+  border-radius: 5px;
+  font-family: Menlo, monospace;
+  font-size: 0.8em;
+  padding: 10px;
+  white-space: pre-wrap;
+}
