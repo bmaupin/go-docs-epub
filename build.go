@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -13,13 +15,13 @@ import (
 )
 
 const (
-	effectiveGoCoverImg      = "covers/effective-go.png"
+	effectiveGoCoverImg      = "assets/covers/effective-go.png"
 	effectiveGoFilename      = "Effective Go.epub"
 	effectiveGoSectionTag    = "h2"
-	effectiveGoSeparator     = "<h2"
 	effectiveGoTitle         = "Effective Go"
 	effectiveGoTitleFilename = "title.xhtml"
 	effectiveGoUrl           = "https://golang.org/doc/effective_go.html"
+	epubCSSFile              = "assets/styles/epub.css"
 )
 
 type epubSection struct {
@@ -106,6 +108,12 @@ func buildEffectiveGo() error {
 	e := epub.NewEpub(effectiveGoTitle)
 	e.SetCover(effectiveGoCoverImg, "")
 
+	epubCSSContent, err := ioutil.ReadFile(epubCSSFile)
+	if err != nil {
+		return err
+	}
+	epubCSSPath, err := e.AddCSS(string(epubCSSContent), filepath.Base(epubCSSFile))
+
 	// Iterate through each section and add it to the EPUB
 	for _, section := range sections {
 		sectionContent := ""
@@ -126,7 +134,7 @@ func buildEffectiveGo() error {
 			sectionContent += nodeContent
 		}
 
-		_, err := e.AddSection(section.title, sectionContent, section.filename, "")
+		_, err := e.AddSection(section.title, sectionContent, section.filename, epubCSSPath)
 		if err != nil {
 			return err
 		}
