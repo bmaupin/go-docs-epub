@@ -53,36 +53,8 @@ func buildEffectiveGo() error {
 	pageNode := htmlutil.GetFirstHtmlNode(doc, "div", "id", "page")
 	containerNode := htmlutil.GetFirstHtmlNode(pageNode, "div", "class", "container")
 
-	// Get the footer node and clean it up a little bit
 	footerNode := htmlutil.GetFirstHtmlNode(containerNode, "div", "id", "footer")
-	newBrNode := func() *html.Node {
-		return &html.Node{
-			Type: html.ElementNode,
-			Data: "br",
-		}
-	}
-	for node := footerNode.FirstChild; node != nil; node = node.NextSibling {
-		// Double all <br> elements for styling
-		if node.Type == html.ElementNode && node.Data == "br" {
-			footerNode.InsertBefore(newBrNode(), node)
-
-		} else if node.Type == html.TextNode && strings.Contains(node.Data, "page") {
-			node.Data = strings.Replace(node.Data, "page", "book", -1)
-		}
-	}
-	footerNode.InsertBefore(
-		newBrNode(),
-		footerNode.FirstChild)
-	footerNode.InsertBefore(
-		newBrNode(),
-		footerNode.FirstChild)
-	// TODO: make this a link
-	footerNode.InsertBefore(
-		&html.Node{
-			Type: html.TextNode,
-			Data: fmt.Sprintf("Source: %s", effectiveGoUrl),
-		},
-		footerNode.FirstChild)
+	footerNode = reformatEffectiveGoFooter(footerNode)
 
 	sections := []epubSection{}
 	section := &epubSection{}
@@ -175,5 +147,52 @@ func debugNode(n *html.Node) {
 	}
 
 	fmt.Printf("data: %s\n", n.Data)
+	fmt.Printf("attr: %s\n", n.Attr)
 	fmt.Println(htmlutil.HtmlNodeToString(n))
+}
+
+func reformatEffectiveGoFooter(footerNode *html.Node) *html.Node {
+	newBrNode := func() *html.Node {
+		return &html.Node{
+			Type: html.ElementNode,
+			Data: "br",
+		}
+	}
+	for node := footerNode.FirstChild; node != nil; node = node.NextSibling {
+		// Double all <br> elements for styling
+		if node.Type == html.ElementNode && node.Data == "br" {
+			footerNode.InsertBefore(newBrNode(), node)
+
+		} else if node.Type == html.TextNode && strings.Contains(node.Data, "page") {
+			node.Data = strings.Replace(node.Data, "page", "book", -1)
+		}
+	}
+	footerNode.InsertBefore(
+		newBrNode(),
+		footerNode.FirstChild)
+	footerNode.InsertBefore(
+		newBrNode(),
+		footerNode.FirstChild)
+	sourceLinkNode := &html.Node{
+		Type: html.ElementNode,
+		Data: "a",
+		Attr: []html.Attribute{
+			html.Attribute{
+				Key: "href",
+				Val: effectiveGoUrl,
+			}},
+	}
+	sourceLinkNode.AppendChild(&html.Node{
+		Type: html.TextNode,
+		Data: effectiveGoUrl,
+	})
+	footerNode.InsertBefore(sourceLinkNode, footerNode.FirstChild)
+	footerNode.InsertBefore(
+		&html.Node{
+			Type: html.TextNode,
+			Data: "Source: ",
+		},
+		footerNode.FirstChild)
+
+	return footerNode
 }
