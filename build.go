@@ -90,19 +90,15 @@ func buildEffectiveGo() error {
 			section.nodes = append(section.nodes, *node)
 		}
 
-		for _, n := range htmlutil.GetAllHtmlNodes(node, "", "id", "") {
-			//fmt.Println(htmlutil.HtmlNodeToString(n))
-			//debugNode(n)
-			//fmt.Println(node.Attr["id"])
-			for _, attr := range n.Attr {
+		// Map internal links to their section filename
+		for _, idNode := range htmlutil.GetAllHtmlNodes(node, "", "id", "") {
+			for _, attr := range idNode.Attr {
 				if attr.Key == "id" {
 					internalLinks[attr.Val] = fmt.Sprintf("%s#%s", sectionFilename, attr.Val)
 				}
 			}
 		}
 	}
-
-	//fmt.Printf("%v\n", internalLinks)
 
 	// Make sure the last section gets added
 	sections = append(sections, *section)
@@ -113,8 +109,17 @@ func buildEffectiveGo() error {
 	// Iterate through each section and add it to the EPUB
 	for _, section := range sections {
 		sectionContent := ""
-		for _, node := range section.nodes {
-			nodeContent, err := htmlutil.HtmlNodeToString(&node)
+		for _, sectionNode := range section.nodes {
+			// Fix internal links so they work after splitting page into sections
+			for _, linkNode := range htmlutil.GetAllHtmlNodes(&sectionNode, "a", "", "") {
+				for i, attr := range linkNode.Attr {
+					if attr.Key == "href" && strings.HasPrefix(attr.Val, "#") {
+						linkNode.Attr[i].Val = internalLinks[attr.Val[1:]]
+					}
+				}
+			}
+
+			nodeContent, err := htmlutil.HtmlNodeToString(&sectionNode)
 			if err != nil {
 				return err
 			}
@@ -140,28 +145,6 @@ func titleToFilename(title string) string {
 	title = strings.Replace(title, " ", "-", -1)
 
 	return fmt.Sprintf("%s.xhtml", title)
-}
-
-// TODO: remove this
-func debugNode(node *html.Node) {
-	fmt.Printf("type: %s\n", node.Type)
-	if node.Type == html.CommentNode {
-		fmt.Println("type: CommentNode")
-	} else if node.Type == html.DoctypeNode {
-		fmt.Println("type: DoctypeNode")
-	} else if node.Type == html.DocumentNode {
-		fmt.Println("type: DocumentNode")
-	} else if node.Type == html.ElementNode {
-		fmt.Println("type: ElementNode")
-	} else if node.Type == html.ErrorNode {
-		fmt.Println("type: ErrorNode")
-	} else if node.Type == html.TextNode {
-		fmt.Println("type: TextNode")
-	}
-
-	fmt.Printf("data: %s\n", node.Data)
-	fmt.Printf("attr: %s\n", node.Attr)
-	fmt.Println(htmlutil.HtmlNodeToString(node))
 }
 
 func reformatEffectiveGoFooter(footerNode *html.Node) *html.Node {
