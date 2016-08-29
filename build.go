@@ -10,7 +10,7 @@ import (
 	"golang.org/x/net/html"
 
 	"github.com/bmaupin/go-epub"
-	"github.com/bmaupin/go-util/htmlutil"
+	"github.com/bmaupin/go-htmlutil"
 )
 
 const (
