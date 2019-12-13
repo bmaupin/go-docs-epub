@@ -53,7 +53,7 @@ func buildEffectiveGo() error {
 		log.Fatalf("Parse error: %s", err)
 	}
 
-	pageNode := htmlutil.GetFirstHtmlNode(doc, "div", "id", "page")
+	pageNode := htmlutil.GetFirstHtmlNode(doc, "main", "id", "page")
 	containerNode := htmlutil.GetFirstHtmlNode(pageNode, "div", "class", "container")
 
 	footerNode := htmlutil.GetFirstHtmlNode(containerNode, "div", "id", "footer")
